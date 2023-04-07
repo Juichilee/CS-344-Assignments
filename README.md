@@ -1,1 +1,1 @@
-# CS-361-Projects
+# CS-344-Projects
