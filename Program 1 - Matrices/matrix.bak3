@@ -1,0 +1,341 @@
+#!/bin/bash
+# Author: Juichi Lee
+# Date: 1/21/20
+# Program Name: Matrix
+row=0
+column=0
+row2=0
+column2=0
+
+# Function name: dims
+# Description: Checks if the file in the first argument is a valid matrix file. Then, it prints out the number of rows and columns of that matrix.
+function dims(){   
+
+    if [ "$#" -ne 1 ]
+    then
+	echo You must enter exactly 1 command line arguments 1>&2
+	exit 1 
+    fi
+    
+    if [ ! -r $1 ]
+    then
+	echo File is not readable 1>&2
+	exit 1
+    fi
+
+    CheckViableFile $1
+
+    echo $row $column
+}
+
+# Function name: transpose
+# Description: Reflects the elements of the matrix along the main diagonal. 
+function transpose(){
+
+    if [ "$#" -ne 1 ]
+    then
+	echo You must enter exactly 1 command line arguments 1>&2
+	exit 1
+    fi
+
+    if [ ! -r $1 ]
+    then
+	echo File is not readable 1>&2
+	exit 1
+    fi
+
+    CheckViableFile $1
+
+    number=1
+
+    while [ "$number" -le "$row" ]
+
+    do
+
+	cut -f $number $1 | cat | tr '\n' '\t' >> tempFile 
+
+	echo >> tempFile
+	
+	number=$((number+1))
+
+    done
+
+    cat tempFile
+
+    rm tempFile    
+}
+
+# Function name: mean
+# Description: Takes a MxN matrix and returns a 1xN row, where the first element is the mean of column one, the second element is the mean of column two, and so on. 
+function mean(){
+
+    if [ "$#" -ne 1 ]
+    then
+	echo You must enter exactly 1 command line arguments 1>&2
+	exit 1
+    fi
+
+    if [ ! -r $1 ]
+    then
+	echo File is not readable 1>&2
+	exit 1
+    fi
+
+    CheckViableFile $1
+
+    number=1
+
+    while [ "$number" -le "$column" ]
+
+    do
+
+	cut -f $number $1 | cat | tr '\n' '\t' > tempFile
+
+	nums=$(<tempFile)
+
+	sum=0
+
+	mean=0
+
+	for i in ${nums[@]}
+
+	do
+
+	    sum=$((sum+i))  	    
+
+	done
+	
+	mean=$((sum/row))
+
+	echo $mean | tr '\n' '\t' >> tempFile2
+
+	number=$((number+1))
+
+    done
+    
+    echo >> tempFile2
+
+    cat tempFile2
+
+    rm tempFile
+
+    rm tempFile2
+}
+
+# Function name: add
+# Description: Takes in two MxN matrices and adds them together to produce a MxN matrix. 
+function add(){
+ 
+    if [ "$#" -ne 2 ]
+    then
+	echo You must enter exactly 2 command line arguments 1>&2
+	exit 1
+    fi
+
+    if [ ! -r $1 ]
+    then
+	echo File one is not readable 1>&2
+	exit 1
+    fi
+
+    if [ ! -r $2 ]
+    then
+	echo File two is not readable 1>&2
+	exit 1
+    fi
+
+    CheckViableFile $1
+
+    CheckViableFile $2 2
+
+    if [ $row != $row2 ] || [ $column != $column2 ]
+
+    then
+
+	echo Matrix dimensions do not match! 1>&2
+
+	exit 2
+
+    fi    
+    
+    number=1
+
+    while [ "$number" -le "$row" ]
+
+    do
+
+	cat $1 | head -$number | tail -1 > tempFile
+
+	cat $2 | head -$number | tail -1 > tempFile2
+
+	nums=$(<tempFile)
+
+	counter=1
+
+	for i in ${nums[@]}
+
+	do 
+
+	    op1=$i
+
+	    op2=$(cut -f $counter tempFile2 | cat)
+
+	    sum=$((op1+op2))
+
+	    echo $sum | tr '\n' '\t' >> tempFile3 
+
+	    counter=$((counter+1))    
+
+	done	
+
+	echo >> tempFile3	
+
+	number=$((number+1))
+    
+    done
+    
+    cat tempFile3    
+    
+    rm tempFile3
+    
+    rm tempFile2
+    
+    rm tempFile
+}
+
+# Function name: multiply
+# Description: Takes in a MxN and a NxP matrix to produce a MxP matrix. 
+function multiply(){
+
+    if [ "$#" -ne 2 ]
+    then
+	echo You must enter exactly 2 command line arguments 1>&2
+	exit 1
+    fi
+
+    if [ ! -r $1 ]
+    then
+	echo File one is not readable 1>&2
+	exit 1
+    fi
+
+    if [ ! -r $2 ]
+    then
+	echo File two is not readable 1>&2
+	exit 1
+    fi
+
+    CheckViableFile $1
+    CheckViableFile $2 2
+
+    if [ $column != $row2 ]
+    then
+	echo Matrix dimensions do not follow the rules of matrix multiplication! 1>&2
+	exit 2
+
+    fi    
+    cat $1 > tempFile
+    cat $2 > tempFile2    
+
+    for (( i=1; i<=$row; i++ ))
+    do
+	
+	for (( j=1; j<=$column2; j++ ))
+	do
+	    sum=0   
+	    for (( k=1; k<=$column; k++ ))
+	    do
+		Aik=$(cut -f $i tempFile | cat | head -$k | tail -1)
+		Bkj=$(cut -f $k tempFile2 | cat | head -$j | tail -1)
+		sum=$((sum+(Aik*Bkj)))
+	    done
+	    echo $sum | tr '\n' '\t' >> tempFile3
+	done
+	echo >> tempFile3
+    done
+
+    cat tempFile3
+    rm tempFile
+    rm tempFile2
+    rm tempFile3
+
+}
+
+# Function name: CheckViableFile
+# Description: Checks if the argument file conforms to proper matrix rules.
+function CheckViableFile(){
+
+    totalWordCount=$(wc -w $1 | cut -d " " -f 1) #$(cat wordCountFile | cut -d " " -f 2)
+ 
+    totalLineCount=$(wc -l $1 | cut -d " " -f 1) #$(cat wordCountFile | cut -d " " -f 1)
+ 
+    head -n 1 $1 > wordCountFile
+
+    singleLineCount=$(cat wordCountFile | wc -w)
+ 
+    calculatedWordCount=$( expr $totalLineCount \* $singleLineCount)
+   
+    rm wordCountFile
+    
+    if [[ $calculatedWordCount == $totalWordCount ]]
+
+    then
+
+	if [[ $2 == 2 ]]
+
+	then
+
+	    row2=$totalLineCount
+
+	    column2=$singleLineCount
+
+	else
+
+	    row=$totalLineCount
+
+	    column=$singleLineCount
+
+	fi
+
+    else
+
+        echo "Matrix is not proper!" 1>&2
+
+	exit 1
+
+    fi
+}
+
+case "$1" in
+
+    ("dims")
+
+	dims $2
+
+	;;
+
+    ("transpose")
+
+	transpose $2
+
+	;;
+
+    ("mean")
+
+	mean $2
+
+	;;
+
+    ("add")
+
+	add $2 $3
+
+	;;
+
+    ("multiply")
+
+	multiply $2 $3
+
+	;;
+
+esac

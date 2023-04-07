@@ -1,0 +1,357 @@
+#!/bin/bash
+# Author: Juichi Lee
+# Date: 1/21/20
+# Program Name: Matrix
+row=0
+column=0
+row2=0
+column2=0
+
+# Function name: dims
+# Description: Checks if the file in the first argument is a valid matrix file. Then, it prints out the number of rows and columns of that matrix.
+function dims(){    
+    CheckViableFile $1
+
+    echo $row $column # print row and column calculated from CheckViableFile.
+}
+
+# Function name: transpose
+# Description: Reflects the elements of the matrix along the main diagonal. 
+function transpose(){
+
+    CheckViableFile $1
+
+    number=1
+    
+    while [ "$number" -le "$column" ]
+
+    do
+
+    cut -f $number $1 | cat | tr '\n' '\t' >> tempFile #cut out current column and change new line to tabs.
+    truncate -s-1 tempFile  # get rid of trailing \t at the end of the line.
+    echo >> tempFile
+	
+    number=$((number+1))
+
+    done	
+
+    cat tempFile
+
+    rm tempFile    
+}
+
+# Function name: mean
+# Description: Takes a MxN matrix and returns a 1xN row, where the first element is the mean of column one, the second element is the mean of column two, and so on. 
+function mean(){
+
+    CheckViableFile $1
+
+    number=1
+
+    while [ "$number" -le "$column" ]
+
+    do
+
+	cut -f $number $1 | cat | tr '\n' '\t' > tempFile # cut out the current column and change new line to tabs.
+
+	nums=$(<tempFile) # store row-transformed column into nums.
+
+	sum=0
+
+	mean=0
+
+	for i in ${nums[@]} # iterate over row-transformed column and add them all together.
+
+	do
+
+	    sum=$((sum+i))
+
+	done
+	
+	mean=$(((($sum + ($row/2)*(($sum>0)*2-1))/row))) # calculate the mean, which can round up or down.
+	
+	echo $mean | tr '\n' '\t' >> tempFile2 # append calculated mean to tempFile2
+
+	number=$((number+1))
+
+    done
+    
+    truncate -s-1 tempFile2 # get rid of trailing '\t' at the end of the file.
+    
+    echo >> tempFile2
+
+    cat tempFile2
+
+    rm tempFile
+
+    rm tempFile2
+}
+
+# Function name: add
+# Description: Takes in two MxN matrices and adds them together to produce a MxN matrix. 
+function add(){ 
+
+    CheckViableFile $1
+
+    CheckViableFile $2 2 # checks second inputted file.
+
+    if [ $row != $row2 ] || [ $column != $column2 ] # Checks if matrix dimensions match.
+
+    then
+
+	echo Matrix dimensions do not match! 1>&2
+
+	exit 2
+
+    fi    
+    
+    number=1
+
+    while [ "$number" -le "$row" ] # looping through matrix1's row.
+
+    do
+
+	cat $1 | head -$number | tail -1 > tempFile # get the current number row line for matrix1.
+
+	cat $2 | head -$number | tail -1 > tempFile2 # get the current number row line for matrix2.
+
+	nums=$(<tempFile) # store current number row line for matrix1 in nums.
+
+	counter=1
+
+	for i in ${nums[@]} # loop through matrix1's row line.
+
+	do 
+
+	    op1=$i # set op1 to current matrix1 row line element in loop.
+
+	    op2=$(cut -f $counter tempFile2 | cat) # get and set current matrix2 row line element in loop.
+
+	    sum=$((op1+op2)) # add both operators together and store into sum.
+
+	    echo $sum | tr '\n' '\t' >> tempFile3 
+
+	    counter=$((counter+1))    
+
+	done	
+
+	truncate -s-1 tempFile3
+	echo >> tempFile3	
+
+	number=$((number+1))
+    
+    done
+    
+    cat tempFile3    
+    
+    rm tempFile3
+    
+    rm tempFile2
+    
+    rm tempFile
+}
+
+# Function name: multiply
+# Description: Takes in a MxN and a NxP matrix to produce a MxP matrix. 
+function multiply(){
+
+    CheckViableFile $1
+    CheckViableFile $2 2
+
+    if [ $column != $row2 ] # check if NxM MxP rule is followed.
+    then
+	echo Matrix dimensions do not follow the rules of matrix multiplication! 1>&2
+	exit 2
+
+    fi    
+    cat $1 > tempFile
+    cat $2 > tempFile2    
+
+    for (( i=1; i<=$row; i++ )) # loop through matrix1 row.
+    do
+	
+	for (( j=1; j<=$column2; j++ )) # loop through matrix2 column.
+	do
+	    sum=0   
+	    for (( k=1; k<=$column; k++ )) # loop through matrix1 column.
+	    do
+		Aik=$(cut -f $k tempFile | head -$i | tail -1 | cat) # get and store specific element at Matrix1 location (i,k) into Aik.
+		Bkj=$(cut -f $j tempFile2 | head -$k | tail -1 | cat) # get and store specific element at Matrix2 location (k,j) into Bkj.
+		sum=$((sum+(Aik*Bkj))) # calculate sum of all multiplied elements.
+	    done
+	    echo $sum | tr '\n' '\t' >> tempFile3
+	done
+	truncate -s-1 tempFile3
+	echo >> tempFile3
+	
+    done
+
+    cat tempFile3
+    rm tempFile
+    rm tempFile2
+    rm tempFile3
+
+}
+
+# Function name: CheckViableFile
+# Description: Checks if the argument file conforms to proper matrix rules.
+function CheckViableFile(){
+
+    totalWordCount=$(wc -w $1 | cut -d " " -f 1) #$(cat wordCountFile | cut -d " " -f 2)
+ 
+    totalLineCount=$(wc -l $1 | cut -d " " -f 1) #$(cat wordCountFile | cut -d " " -f 1)
+ 
+    head -n 1 $1 > wordCountFile
+
+    singleLineCount=$(cat wordCountFile | wc -w)
+ 
+    calculatedWordCount=$( expr $totalLineCount \* $singleLineCount)
+   
+    rm wordCountFile
+    
+    if [[ $calculatedWordCount == $totalWordCount ]] # checks if the actual word count fits the word count expected for a rectangular matrix.
+
+    then
+
+	if [[ $2 == 2 ]]
+
+	then
+
+	    row2=$totalLineCount
+
+	    column2=$singleLineCount
+
+	else
+
+	    row=$totalLineCount
+
+	    column=$singleLineCount
+
+	fi
+
+    else
+
+        echo "Matrix is not proper!" 1>&2
+
+	exit 1
+
+    fi
+}
+
+case "$1" in
+
+    ("dims")	
+
+	datafilepath="datafile$$"
+
+	if [ ! -r $2 ]
+        then
+	    echo File is not readable 1>&2
+	    exit 1
+        fi
+	
+	if [ "$#" == 1 ]
+	then
+	    cat > "$datafilepath"
+	elif [ "$#" == 2 ]
+	then
+	    datafilepath=$2
+	else
+	    echo Does not accept more than one input 1>&2
+	    exit 1
+	fi 	
+	
+	dims $datafilepath
+
+	;;
+
+    ("transpose")
+        
+	datafilepath="datafile$$"
+
+	if [ ! -r $2 ]
+        then
+	    echo File is not readable 1>&2
+	    exit 1
+        fi
+	
+	if [ "$#" == 1 ]
+	then
+	    cat > "$datafilepath"
+	elif [ "$#" == 2 ]
+	then
+	    datafilepath=$2
+	else
+	    echo Does not accept more than one input 1>&2
+	    exit 1
+	fi 
+
+	transpose $datafilepath
+
+	;;
+
+    ("mean")
+        
+	datafilepath="datafile$$"
+
+	if [ ! -r $2 ]
+        then
+	    echo File is not readable 1>&2
+	    exit 1
+        fi
+	
+	if [ "$#" == 1 ]
+	then
+	    cat > "$datafilepath"
+	elif [ "$#" == 2 ]
+	then
+	    datafilepath=$2
+	else
+	    echo Does not accept more than one input 1>&2
+	    exit 1
+	fi
+
+	mean $datafilepath
+
+	;;
+
+    ("add")
+        if [ "$#" != 3 ]
+        then
+    	    echo You must enter exactly 2 command line arguments 1>&2
+            exit 1 
+        fi
+    
+        if [ ! -r $2 ] || [ ! -r $3 ]
+        then
+	    echo File is not readable 1>&2
+	    exit 1
+        fi
+
+	add $2 $3
+
+	;;
+
+    ("multiply")
+        if [ "$#" != 3 ]
+        then
+    	    echo You must enter exactly 2 command line arguments 1>&2
+            exit 1 
+        fi
+    
+        if [ ! -r $2 ] || [ ! -r $3 ]
+        then
+	    echo File is not readable 1>&2
+	    exit 1
+        fi
+
+	multiply $2 $3
+
+	;;
+
+    (*)
+	echo badcommand 1>&2
+	exit 1
+        ;;
+
+esac

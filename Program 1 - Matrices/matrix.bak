@@ -1,0 +1,68 @@
+#!/bin/bash
+row=0
+column=0
+
+function dims(){   
+    CheckViableFile $1
+    echo $row $column
+}
+
+function transpose(){
+    CheckViableFile $1
+    number=1
+    while [ "$number" -le "$row" ]
+    do
+	#echo "Number = $number"
+	cut -f $number $1 | cat | tr '\n' '\t' >> tempFile 
+	echo >> tempFile
+	#cat tempFile
+	#echo "\n" >> tempFile2
+	
+	number=$((number+1))
+    done
+    cat tempFile
+    rm tempFile    
+}
+
+function mean(){
+    echo seals
+}
+
+function add(){
+    echo seals
+}
+
+function multiply(){
+    echo seals
+}
+
+function CheckViableFile(){
+    totalWordCount=$(wc -w $1 | cut -d " " -f 1) #$(cat wordCountFile | cut -d " " -f 2)
+    totalLineCount=$(wc -l $1 | cut -d " " -f 1) #$(cat wordCountFile | cut -d " " -f 1)
+    #echo "$totalWordCount"    
+    #echo "$totalLineCount"
+    head -n 1 $1 > wordCountFile
+    singleLineCount=$(cat wordCountFile | wc -w)
+    calculatedWordCount=$( expr $totalLineCount \* $singleLineCount)
+    #echo calculated word count $calculatedWordCount
+    #echo total word count $totalWordCount
+    rm wordCountFile
+    if [[ $calculatedWordCount == $totalWordCount ]]
+    then
+        #echo Matrix is proper!
+        row=$singleLineCount
+	column=$totalLineCount
+    else
+        echo "Matrix is not proper!" 1>&2
+	exit 1
+    fi
+}
+
+case "$1" in
+    ("dims")
+	dims $2
+	;;
+    ("transpose")
+	transpose $2
+	;;
+esac
